@@ -1,7 +1,15 @@
 import json
 import sys, os, shutil
 from pathlib import Path
-from PIL import Image
+
+from PIL import Image, ImageQt
+
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+except Exception:
+    pass
+
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QPushButton, QFileDialog,
     QHBoxLayout, QVBoxLayout, QMessageBox, QLineEdit
@@ -45,7 +53,7 @@ class ImageViewer(QMainWindow):
 
         left_col = QVBoxLayout()
         self.img_label = QLabel("No image")
-        self.img_label.setAlignment(Qt.AlignCenter)
+        self.img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.img_label.setFixedSize(800, 600)
         left_col.addWidget(self.img_label)
 
@@ -73,7 +81,7 @@ class ImageViewer(QMainWindow):
         right_col.setContentsMargins(6, 0, 0, 0)
         right_col.addWidget(QLabel("Image Details"))
         self.details = QLabel("")
-        self.details.setAlignment(Qt.AlignTop)
+        self.details.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.details.setWordWrap(True)
         self.details.setFixedWidth(260)
         right_col.addWidget(self.details)
@@ -171,12 +179,28 @@ class ImageViewer(QMainWindow):
             self.save_state()
             return
         p = self.images[self.index]
-        pix = QPixmap(str(p))
-        if pix.isNull():
+        pix = None
+
+        try:
+            with Image.open(p) as img:
+                img.load()
+                if img.mode not in ("RGB", "RGBA", "L"):
+                    img = img.convert("RGBA")
+                qimage = ImageQt.ImageQt(img)
+                pix = QPixmap.fromImage(qimage)
+        except Exception:
+            pix = QPixmap(str(p))
+
+        if pix is None or pix.isNull():
             self.img_label.setText("Cannot load image")
             self.save_state()
             return
-        scaled = pix.scaled(self.img_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        scaled = pix.scaled(
+            self.img_label.size(),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
         self.img_label.setPixmap(scaled)
         self.save_state()
         self.update_ui()
@@ -222,10 +246,10 @@ class ImageViewer(QMainWindow):
             self,
             "Delete image",
             f"Delete {p.name}?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
         )
-        if reply != QMessageBox.Yes:
+        if reply != QMessageBox.StandardButton.Yes:
             return
         try:
             p.unlink()
@@ -244,15 +268,15 @@ class ImageViewer(QMainWindow):
 
     def keyPressEvent(self, event):
         key = event.key()
-        if key == Qt.Key_J:
+        if key == Qt.Key.Key_J:
             self.show_prev()
-        elif key == Qt.Key_L:
+        elif key == Qt.Key.Key_L:
             self.show_next()
-        elif key == Qt.Key_E:
+        elif key == Qt.Key.Key_E:
             self.copy_current()
-        elif key == Qt.Key_T:
+        elif key == Qt.Key.Key_T:
             self.delete_current()
-        elif key == Qt.Key_O:
+        elif key == Qt.Key.Key_O:
             self.select_folder()
         else:
             super().keyPressEvent(event)

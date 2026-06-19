@@ -1,3 +1,4 @@
 @echo off
-start "" "C:\Users\linus\anaconda3\pythonw.exe" "C:\Users\linus\OneDrive\Desktop\image viewer\image_viewer.py"
+set "SCRIPT_DIR=%~dp0"
+start "" "%SCRIPT_DIR%.venv\Scripts\pythonw.exe" "%SCRIPT_DIR%image_viewer.py"
 exit
